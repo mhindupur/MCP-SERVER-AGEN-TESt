@@ -1,0 +1,32 @@
+[
+  project
+]
+name = "cloud-mcp-agent"
+version = "0.1.0"
+description = "MCP server exposing AWS/Azure/GCP VM operations (list/start/stop)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Your Team" }]
+
+dependencies = [
+  "fastmcp>=3.2.4",
+  "boto3>=1.34.0",
+  "botocore>=1.34.0",
+  "azure-identity>=1.17.0",
+  "azure-mgmt-compute>=33.0.0",
+  "google-cloud-compute>=1.20.0",
+]
+
+[project.scripts]
+cloud-mcp-agent = "cloud_mcp_agent.server:main"
+
+[build-system]
+requires = ["hatchling>=1.22.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cloud_mcp_agent"]
+
+[tool.ruff]
+line-length = 100
