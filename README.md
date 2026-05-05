@@ -1,27 +1,24 @@
 # cloud-mcp-agent (Python MCP server)
 
-This is a Python **MCP server** (using `fastmcp`) that lets operators authenticate via standard cloud SDK mechanisms and run tools like:
+This is a Python **MCP server** (using `fastmcp`) for **AWS EC2** that lets operators authenticate via standard AWS SDK mechanisms and run tools like:
 
 - List AWS EC2 instances
+- List AWS EC2 instances with **instance-type memory < 2GB**
 - Start/stop AWS EC2 instances
-- List Azure VMs
-- List GCP Compute Engine instances
 
 ## Prerequisites
 
 - Python 3.10+
 - Cloud CLIs (recommended):
   - AWS CLI (`aws`)
-  - Azure CLI (`az`)
-  - gcloud (`gcloud`)
 
 ## Install
 
 From the repo root:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python3 -m venv mcp-env
+source mcp-env/bin/activate
 pip install -U pip
 pip install -e .
 ```
@@ -64,11 +61,15 @@ gcloud auth application-default login
 
 ## Tools exposed
 
-- `aws_list_ec2_instances(region, profile=None)`
-- `aws_start_ec2_instances(instance_ids, region, profile=None)`
-- `aws_stop_ec2_instances(instance_ids, region, profile=None)`
-- `azure_list_vms(subscription_id)`
-- `gcp_list_instances(project, zone)`
+- `aws_list_ec2_instances(region="ap-south-1", profile="dc")`
+- `aws_list_ec2_instances_memory_lt_2gb(region="ap-south-1", profile="dc")`
+- `list_aws_ec2_instances_less_than_2gb_memory(region="ap-south-1", profile="dc")` (friendly alias)
+- `aws_list_ec2_instances_max_memory(region="ap-south-1", max_memory_mib=2048, profile="dc")`
+- `aws_list_ec2_instances_cpu_utilization_filter(threshold_percent, comparator="gt|gte|lt|lte", region="ap-south-1", profile="dc", lookback_minutes=15)`
+- `list_aws_ec2_instances_cpu_greater_than(threshold_percent=50, region="ap-south-1", profile="dc", lookback_minutes=15)`
+- `list_aws_ec2_instances_cpu_less_than(threshold_percent=70, region="ap-south-1", profile="dc", lookback_minutes=15)`
+- `aws_start_ec2_instances(instance_ids, region="ap-south-1", profile="dc")`
+- `aws_stop_ec2_instances(instance_ids, region="ap-south-1", profile="dc")`
 
 ## Next steps
 

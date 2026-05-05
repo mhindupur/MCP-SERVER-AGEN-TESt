@@ -1,9 +1,7 @@
-[
-  project
-]
+[project]
 name = "cloud-mcp-agent"
 version = "0.1.0"
-description = "MCP server exposing AWS/Azure/GCP VM operations (list/start/stop)."
+description = "MCP server exposing AWS EC2 operations (list/start/stop + memory filter)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -13,9 +11,6 @@ dependencies = [
   "fastmcp>=3.2.4",
   "boto3>=1.34.0",
   "botocore>=1.34.0",
-  "azure-identity>=1.17.0",
-  "azure-mgmt-compute>=33.0.0",
-  "google-cloud-compute>=1.20.0",
 ]
 
 [project.scripts]
