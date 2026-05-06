@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
 import boto3
+import os
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,10 @@ class AwsInstanceSummary:
 
 
 def _session(region: str, profile: Optional[str]) -> boto3.Session:
+    # If explicit env credentials are present, prefer them over named profiles.
+    # This enables server-side STS temporary creds without fighting AWS_PROFILE.
+    if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
+        return boto3.Session(region_name=region)
     if profile:
         return boto3.Session(profile_name=profile, region_name=region)
     return boto3.Session(region_name=region)

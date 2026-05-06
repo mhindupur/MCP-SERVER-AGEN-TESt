@@ -41,24 +41,6 @@ Any of these work:
 - Named profile in `~/.aws/credentials` / `~/.aws/config`
 - AWS SSO profiles (after `aws sso login --profile <name>`)
 
-### Azure
-
-Recommended:
-
-```bash
-az login
-```
-
-Then `DefaultAzureCredential` will typically pick it up.
-
-### GCP
-
-Recommended:
-
-```bash
-gcloud auth application-default login
-```
-
 ## Tools exposed
 
 - `aws_list_ec2_instances(region="ap-south-1", profile="dc")`
@@ -76,3 +58,44 @@ gcloud auth application-default login
 - Add “create instance” and “terminate instance” flows behind explicit allow-lists.
 - Add policy guardrails (approved regions, instance types, tags).
 - Add audit logging + request IDs.
+
+## Team Web IDE (Next.js + FastAPI)
+
+This repo also contains a **team-hosted** “Cursor-like” web UI:
+
+- `apps/web`: Next.js frontend
+- `services/api`: FastAPI backend (OpenAI tool loop + MCP stdio client + MySQL + OIDC)
+- `infra/terraform`: starter AWS deploy (VPC/RDS/ECS/ALB)
+
+### Local dev (high level)
+
+1) Run API:
+
+```bash
+cd services/api
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -e ../../
+pip install -e .
+uvicorn ide_platform_api.main:app --reload --port 8000
+```
+
+2) Run Web:
+
+```bash
+cd apps/web
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+3) Configure OIDC in `services/api/.env` (or set `AUTH_DISABLED=true` for local dev only).
+
+### Docker build contexts
+
+- API image build context is the **repo root** (see `services/api/Dockerfile`).
+
+### AWS deployment notes
+
+- Use `infra/terraform` as a starting point; you still need TLS, secrets, and IAM hardening for production.
