@@ -19,3 +19,4 @@ out/
 .env
 .env.*
 !.env.example
+services/api/.env

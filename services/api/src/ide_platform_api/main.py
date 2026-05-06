@@ -13,9 +13,16 @@ from ide_platform_api.routes import router as api_router
 def create_app() -> FastAPI:
     app = FastAPI(title="IDE Platform API", version="0.1.0")
 
+    # In dev, allow common localhost + LAN origins on port 3000 to prevent browser fetch failures
+    # when users open the Next.js dev server via a network IP.
+    allow_origin_regex = None
+    if settings.app_env == "dev":
+        allow_origin_regex = r"^http://(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+):3000$"
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=allow_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -23,11 +30,6 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(api_router)
-
-    @app.on_event("startup")
-    def _startup():
-        # Dev convenience. In production, use Alembic migrations.
-        Base.metadata.create_all(bind=engine)
 
     return app
 

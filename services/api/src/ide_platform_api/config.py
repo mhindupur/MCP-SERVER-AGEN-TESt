@@ -11,7 +11,10 @@ class Settings(BaseSettings):
 
     app_env: str = Field(default="dev", validation_alias="APP_ENV")
 
-    cors_origins: List[str] = Field(default_factory=lambda: ["http://localhost:3000"], validation_alias="CORS_ORIGINS")
+    cors_origins: List[str] = Field(
+        default_factory=lambda: ["http://localhost:3000"],
+        validation_alias="CORS_ORIGINS",
+    )
 
     # Dev-only
     auth_disabled: bool = Field(default=False, validation_alias="AUTH_DISABLED")
@@ -39,6 +42,27 @@ class Settings(BaseSettings):
     aws_allowed_role_arns: List[str] = Field(default_factory=list, validation_alias="AWS_ALLOWED_ROLE_ARNS")
     aws_default_role_arn: str | None = Field(default=None, validation_alias="AWS_DEFAULT_ROLE_ARN")
     aws_role_external_id: str | None = Field(default=None, validation_alias="AWS_ROLE_EXTERNAL_ID")
+
+    @field_validator("mcp_cwd", mode="before")
+    @classmethod
+    def _empty_to_none(cls, v):  # type: ignore[no-untyped-def]
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _split_csv_origins(cls, v):  # type: ignore[no-untyped-def]
+        if v is None:
+            return ["http://localhost:3000"]
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            parts = [p.strip() for p in v.split(",")]
+            return [p for p in parts if p]
+        return v
 
     @field_validator("aws_allowed_role_arns", mode="before")
     @classmethod

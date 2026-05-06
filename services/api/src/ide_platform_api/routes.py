@@ -93,18 +93,23 @@ async def chat(
     # Minimal claims for future group->role mapping (stored later if needed)
     claims: dict[str, Any] = {"email": user.email, "sub": user.idp_subject}
 
-    role_arn = body.aws_role_arn or pick_role_arn_for_user(claims)
-    if not role_arn:
-        raise HTTPException(status_code=400, detail="No AWS role configured/mapped for this user")
-    assert_role_allowed(role_arn)
+    # Local dev: skip STS AssumeRole + allow-list enforcement.
+    # Let the MCP server use its own default AWS profile (server-side tool args default to profile="dc").
+    if settings.auth_disabled:
+        mcp_env = McpEnv(aws=None, aws_region=body.aws_region)
+    else:
+        role_arn = body.aws_role_arn or pick_role_arn_for_user(claims)
+        if not role_arn:
+            raise HTTPException(status_code=400, detail="No AWS role configured/mapped for this user")
+        assert_role_allowed(role_arn)
 
-    creds = assume_role(
-        role_arn=role_arn,
-        session_name=f"ide-{user.id[:16]}",
-        external_id=settings.aws_role_external_id,
-    )
+        creds = assume_role(
+            role_arn=role_arn,
+            session_name=f"ide-{user.id[:16]}",
+            external_id=settings.aws_role_external_id,
+        )
 
-    mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
+        mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
 
     async def audit(name: str, args: dict[str, Any], payload: dict[str, Any]):
         db.add(
@@ -155,17 +160,20 @@ async def chat_stream(
     db.commit()
 
     claims: dict[str, Any] = {"email": user.email, "sub": user.idp_subject}
-    role_arn = body.aws_role_arn or pick_role_arn_for_user(claims)
-    if not role_arn:
-        raise HTTPException(status_code=400, detail="No AWS role configured/mapped for this user")
-    assert_role_allowed(role_arn)
+    if settings.auth_disabled:
+        mcp_env = McpEnv(aws=None, aws_region=body.aws_region)
+    else:
+        role_arn = body.aws_role_arn or pick_role_arn_for_user(claims)
+        if not role_arn:
+            raise HTTPException(status_code=400, detail="No AWS role configured/mapped for this user")
+        assert_role_allowed(role_arn)
 
-    creds = assume_role(
-        role_arn=role_arn,
-        session_name=f"ide-{user.id[:16]}",
-        external_id=settings.aws_role_external_id,
-    )
-    mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
+        creds = assume_role(
+            role_arn=role_arn,
+            session_name=f"ide-{user.id[:16]}",
+            external_id=settings.aws_role_external_id,
+        )
+        mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
 
     queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 

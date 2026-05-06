@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type Conversation = { id: string; title: string };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8002";
 
 export default function HomePage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -17,13 +17,10 @@ export default function HomePage() {
   const [busy, setBusy] = useState<boolean>(false);
   const [me, setMe] = useState<{ id: string; email: string; name?: string | null } | null>(null);
 
-  const loginUrl = useMemo(() => {
-    const next = `${window.location.origin}/`;
-    return `${API_BASE}/auth/login?next=${encodeURIComponent(next)}`;
-  }, []);
+  const [loginUrl, setLoginUrl] = useState<string>("");
 
   async function refreshMe() {
-    const r = await fetch(`${API_BASE}/me`, { credentials: "include" });
+    const r = await fetch(`/api/me`, { credentials: "include" });
     if (!r.ok) {
       setMe(null);
       return;
@@ -32,7 +29,7 @@ export default function HomePage() {
   }
 
   async function refreshConversations() {
-    const r = await fetch(`${API_BASE}/conversations`, { credentials: "include" });
+    const r = await fetch(`/api/conversations`, { credentials: "include" });
     if (!r.ok) return;
     const rows: Conversation[] = await r.json();
     setConversations(rows);
@@ -40,13 +37,15 @@ export default function HomePage() {
   }
 
   useEffect(() => {
+    // `window` is only available on the client.
+    setLoginUrl(`${API_BASE}/auth/login?next=${encodeURIComponent(window.location.origin + "/")}`);
     void refreshMe();
     void refreshConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function createConversation() {
-    const r = await fetch(`${API_BASE}/conversations`, {
+    const r = await fetch(`/api/conversations`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -64,7 +63,7 @@ export default function HomePage() {
     setTrace([]);
     setReply("");
     try {
-      const r = await fetch(`${API_BASE}/chat/stream`, {
+      const r = await fetch(`/api/chat/stream`, {
         method: "POST",
         credentials: "include",
         headers: {
