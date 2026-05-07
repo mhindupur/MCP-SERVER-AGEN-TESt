@@ -5,6 +5,7 @@ from typing import Optional
 from fastmcp import FastMCP
 
 from cloud_mcp_agent.providers.aws import (
+    create_ec2_instance,
     list_ec2_instances,
     list_ec2_instances_max_memory as _list_ec2_instances_max_memory,
     list_ec2_instances_by_cpu_utilization,
@@ -144,6 +145,60 @@ def list_aws_ec2_instances_cpu_less_than(
         comparator="lt",
         lookback_minutes=lookback_minutes,
         profile=profile,
+    )
+
+
+@mcp.tool
+def aws_create_ec2_instance(
+    ami_id: str,
+    instance_type: str,
+    region: str = "ap-south-1",
+    profile: str = "dc",
+    key_name: Optional[str] = None,
+    name: Optional[str] = None,
+    security_group_ids: Optional[list[str]] = None,
+    vpc_id: Optional[str] = None,
+    subnet_id: Optional[str] = None,
+    assign_public_ip: Optional[bool] = None,
+    iam_instance_profile_arn: Optional[str] = None,
+    user_data_b64: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+    count: int = 1,
+    dry_run: bool = False,
+):
+    """
+    Spin up (create) a new EC2 instance.
+
+    Required:
+    - ami_id
+    - instance_type
+
+    Common optional inputs:
+    - region/profile (default ap-south-1/dc)
+    - security_group_ids
+    - vpc_id / subnet_id
+    - key_name (SSH key pair name)
+    - name / tags
+
+    Defaults if not provided:
+    - Uses **default VPC**, a **default subnet**, and the **default security group**.
+    """
+    return create_ec2_instance(
+        region=region,
+        ami_id=ami_id,
+        instance_type=instance_type,
+        profile=profile,
+        key_name=key_name,
+        name=name,
+        security_group_ids=security_group_ids,
+        vpc_id=vpc_id,
+        subnet_id=subnet_id,
+        assign_public_ip=assign_public_ip,
+        iam_instance_profile_arn=iam_instance_profile_arn,
+        user_data_b64=user_data_b64,
+        tags=tags,
+        count=count,
+        dry_run=dry_run,
     )
 
 

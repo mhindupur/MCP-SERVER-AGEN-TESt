@@ -298,3 +298,139 @@ def list_ec2_instances_by_cpu_utilization(
 
     out.sort(key=lambda x: -(x.get("cpu_percent") or 0.0))
     return out
+
+
+def _default_vpc_id(*, ec2: Any) -> str:
+    resp = ec2.describe_vpcs(Filters=[{"Name": "isDefault", "Values": ["true"]}])
+    vpcs = resp.get("Vpcs", []) or []
+    if vpcs:
+        return vpcs[0]["VpcId"]
+    # Fallback: pick first VPC if no default exists
+    resp2 = ec2.describe_vpcs()
+    vpcs2 = resp2.get("Vpcs", []) or []
+    if not vpcs2:
+        raise RuntimeError("No VPCs found in this region.")
+    return vpcs2[0]["VpcId"]
+
+
+def _default_subnet_id(*, ec2: Any, vpc_id: str) -> str:
+    # Prefer default subnets (one per AZ) if present.
+    resp = ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+    subnets = resp.get("Subnets", []) or []
+    if not subnets:
+        raise RuntimeError(f"No subnets found for vpc_id={vpc_id}.")
+
+    default_subnets = [s for s in subnets if s.get("DefaultForAz") is True]
+    pick_from = default_subnets or subnets
+    # Deterministic selection
+    pick_from.sort(key=lambda s: (s.get("AvailabilityZone") or "", s.get("SubnetId") or ""))
+    return pick_from[0]["SubnetId"]
+
+
+def _default_security_group_id(*, ec2: Any, vpc_id: str) -> str:
+    resp = ec2.describe_security_groups(
+        Filters=[
+            {"Name": "vpc-id", "Values": [vpc_id]},
+            {"Name": "group-name", "Values": ["default"]},
+        ]
+    )
+    groups = resp.get("SecurityGroups", []) or []
+    if groups:
+        return groups[0]["GroupId"]
+    raise RuntimeError(f"Default security group not found for vpc_id={vpc_id}.")
+
+
+def create_ec2_instance(
+    *,
+    region: str,
+    ami_id: str,
+    instance_type: str,
+    profile: Optional[str] = None,
+    key_name: Optional[str] = None,
+    name: Optional[str] = None,
+    security_group_ids: Optional[list[str]] = None,
+    vpc_id: Optional[str] = None,
+    subnet_id: Optional[str] = None,
+    assign_public_ip: Optional[bool] = None,
+    iam_instance_profile_arn: Optional[str] = None,
+    user_data_b64: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+    count: int = 1,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """
+    Create (RunInstances) an EC2 instance with sensible defaults.
+
+    If vpc_id/subnet_id/security_group_ids are not provided:
+    - picks the default VPC (or first VPC)
+    - picks a default subnet in that VPC (or first subnet)
+    - uses the default security group in that VPC
+    """
+    if count < 1 or count > 20:
+        raise ValueError("count must be between 1 and 20")
+
+    ec2 = _session(region, profile).client("ec2")
+
+    resolved_vpc_id = vpc_id or _default_vpc_id(ec2=ec2)
+    resolved_subnet_id = subnet_id or _default_subnet_id(ec2=ec2, vpc_id=resolved_vpc_id)
+    resolved_sg_ids = security_group_ids or [_default_security_group_id(ec2=ec2, vpc_id=resolved_vpc_id)]
+
+    # Tags
+    merged_tags: dict[str, str] = {}
+    if tags:
+        merged_tags.update({str(k): str(v) for k, v in tags.items()})
+    if name:
+        merged_tags.setdefault("Name", name)
+
+    tag_specifications = []
+    if merged_tags:
+        tag_specifications = [
+            {
+                "ResourceType": "instance",
+                "Tags": [{"Key": k, "Value": v} for k, v in merged_tags.items()],
+            }
+        ]
+
+    # Public IP behavior is only controllable via NetworkInterfaces.
+    network_interfaces = [
+        {
+            "DeviceIndex": 0,
+            "SubnetId": resolved_subnet_id,
+            "Groups": resolved_sg_ids,
+        }
+    ]
+    if assign_public_ip is not None:
+        network_interfaces[0]["AssociatePublicIpAddress"] = bool(assign_public_ip)
+
+    kwargs: dict[str, Any] = {
+        "ImageId": ami_id,
+        "InstanceType": instance_type,
+        "MinCount": count,
+        "MaxCount": count,
+        "NetworkInterfaces": network_interfaces,
+        "DryRun": dry_run,
+    }
+    if key_name:
+        kwargs["KeyName"] = key_name
+    if iam_instance_profile_arn:
+        kwargs["IamInstanceProfile"] = {"Arn": iam_instance_profile_arn}
+    if user_data_b64:
+        # Caller should base64-encode if needed; boto3 expects plain string UserData.
+        kwargs["UserData"] = user_data_b64
+    if tag_specifications:
+        kwargs["TagSpecifications"] = tag_specifications
+
+    resp = ec2.run_instances(**kwargs)
+    instances = resp.get("Instances", []) or []
+    instance_ids = [i.get("InstanceId") for i in instances if isinstance(i.get("InstanceId"), str)]
+
+    return {
+        "instance_ids": instance_ids,
+        "resolved": {
+            "region": region,
+            "vpc_id": resolved_vpc_id,
+            "subnet_id": resolved_subnet_id,
+            "security_group_ids": resolved_sg_ids,
+            "assign_public_ip": assign_public_ip,
+        },
+    }
