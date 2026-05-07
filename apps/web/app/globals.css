@@ -39,6 +39,229 @@ a {
   backdrop-filter: blur(10px);
 }
 
+.msgRow {
+  display: flex;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.msgRowUser {
+  justify-content: flex-start;
+}
+
+.msgRowAssistant {
+  justify-content: flex-end;
+}
+
+.msgBubble {
+  max-width: 80%;
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 12px 12px;
+  background: rgba(10, 14, 24, 0.55);
+}
+
+.msgBubble::before,
+.msgBubble::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.msgBubbleUser::before {
+  left: -12px;
+  top: 18px;
+  border-width: 10px 12px 10px 0;
+  border-color: transparent var(--border) transparent transparent;
+}
+
+.msgBubbleUser::after {
+  left: -11px;
+  top: 19px;
+  border-width: 9px 11px 9px 0;
+  border-color: transparent rgba(10, 14, 24, 0.55) transparent transparent;
+}
+
+.msgBubbleAssistant::before {
+  right: -12px;
+  bottom: 18px;
+  border-width: 10px 0 10px 12px;
+  border-color: transparent transparent transparent var(--border);
+}
+
+.msgBubbleAssistant::after {
+  right: -11px;
+  bottom: 19px;
+  border-width: 9px 0 9px 11px;
+  border-color: transparent transparent transparent rgba(18, 26, 43, 0.88);
+}
+
+.msgBubbleAssistant {
+  background: rgba(18, 26, 43, 0.88);
+}
+
+.msgMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.msgTitle {
+  font-weight: 700;
+}
+
+.msgSummary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.appShell {
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(18, 26, 43, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.topBarTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(640px, 1fr) 340px;
+  gap: 14px;
+  margin-top: 12px;
+  align-items: stretch;
+}
+
+.pane {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(18, 26, 43, 0.72);
+  backdrop-filter: blur(10px);
+  padding: 14px;
+}
+
+.leftPane {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 18px - 18px - 12px - 62px); /* shell padding + gap + topBar */
+  min-height: 640px;
+}
+
+.rightPane {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 18px - 18px - 12px - 62px);
+  min-height: 640px;
+}
+
+.paneHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.paneHeaderTitle {
+  font-weight: 700;
+}
+
+.fieldLabel {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.scrollPane {
+  overflow-y: auto;
+}
+
+.messagesPane {
+  flex: 1 1 auto;
+  padding-right: 6px;
+  margin-top: 10px;
+}
+
+.scrollPane {
+  overflow-y: auto;
+}
+
+.stickyBottom {
+  position: sticky;
+  bottom: 0;
+  background: rgba(18, 26, 43, 0.92);
+  border-top: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.composer {
+  margin-top: 12px;
+}
+
+.composerRow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.composerRole {
+  flex: 999 1 420px;
+  min-width: 260px;
+}
+
+.composerRegion {
+  flex: 1 1 180px;
+  min-width: 150px;
+  max-width: 220px;
+}
+
+.composerSend {
+  flex: 0 0 auto;
+  min-width: 92px;
+}
+
+.composerError {
+  margin-top: 8px;
+  color: #ffb4b4;
+  font-size: 12px;
+}
+
+.traceHeader {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(10, 14, 24, 0.55);
+  color: var(--text);
+  outline: none;
+}
+
 .row {
   display: flex;
   gap: 12px;

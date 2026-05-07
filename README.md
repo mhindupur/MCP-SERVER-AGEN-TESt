@@ -50,9 +50,11 @@ Any of these work:
 - `aws_list_ec2_instances_cpu_utilization_filter(threshold_percent, comparator="gt|gte|lt|lte", region="ap-south-1", profile="dc", lookback_minutes=15)`
 - `list_aws_ec2_instances_cpu_greater_than(threshold_percent=50, region="ap-south-1", profile="dc", lookback_minutes=15)`
 - `list_aws_ec2_instances_cpu_less_than(threshold_percent=70, region="ap-south-1", profile="dc", lookback_minutes=15)`
+- `aws_list_amis(region="ap-south-1", profile="dc", name_contains="al2023", owners=["amazon"], limit=20)`
 - `aws_create_ec2_instance(ami_id, instance_type, region="ap-south-1", profile="dc", security_group_ids=None, vpc_id=None, subnet_id=None, ...)`
 - `aws_start_ec2_instances(instance_ids, region="ap-south-1", profile="dc")`
 - `aws_stop_ec2_instances(instance_ids, region="ap-south-1", profile="dc")`
+- `aws_terminate_ec2_instances(instance_ids, region="ap-south-1", profile="dc", dry_run=false)`
 
 ## Next steps
 

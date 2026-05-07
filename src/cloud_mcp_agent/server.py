@@ -6,11 +6,13 @@ from fastmcp import FastMCP
 
 from cloud_mcp_agent.providers.aws import (
     create_ec2_instance,
+    list_amis,
     list_ec2_instances,
     list_ec2_instances_max_memory as _list_ec2_instances_max_memory,
     list_ec2_instances_by_cpu_utilization,
     start_ec2_instances,
     stop_ec2_instances,
+    terminate_ec2_instances,
 )
 
 mcp = FastMCP("cloud-mcp-agent")
@@ -36,6 +38,21 @@ def aws_stop_ec2_instances(
 ):
     """Stop one or more EC2 instances by instance id (defaults: ap-south-1, profile=dc)."""
     return stop_ec2_instances(instance_ids=instance_ids, region=region, profile=profile)
+
+
+@mcp.tool
+def aws_terminate_ec2_instances(
+    instance_ids: list[str],
+    region: str = "ap-south-1",
+    profile: str = "dc",
+    dry_run: bool = False,
+):
+    """
+    Terminate one or more EC2 instances by instance id.
+
+    Use `dry_run=true` first if you want to validate permissions before terminating.
+    """
+    return terminate_ec2_instances(instance_ids=instance_ids, region=region, profile=profile, dry_run=dry_run)
 
 
 @mcp.tool
@@ -199,6 +216,38 @@ def aws_create_ec2_instance(
         tags=tags,
         count=count,
         dry_run=dry_run,
+    )
+
+
+@mcp.tool
+def aws_list_amis(
+    region: str = "ap-south-1",
+    profile: str = "dc",
+    owners: Optional[list[str]] = None,
+    name_contains: Optional[str] = "al2023",
+    architecture: Optional[str] = "x86_64",
+    most_recent: bool = True,
+    limit: int = 20,
+):
+    """
+    List available AMIs in a region so users can pick a valid `ami_id`.
+
+    Example user intent:
+    - "Show me available AMIs for ap-south-1"
+    - "List Amazon Linux 2023 AMIs"
+
+    Defaults:
+    - name_contains='al2023' (Amazon Linux 2023)
+    - owners defaults to ['amazon'] (official images)
+    """
+    return list_amis(
+        region=region,
+        profile=profile,
+        owners=owners,
+        name_contains=name_contains,
+        architecture=architecture,
+        most_recent=most_recent,
+        limit=limit,
     )
 
 

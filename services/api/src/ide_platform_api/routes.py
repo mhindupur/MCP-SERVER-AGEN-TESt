@@ -7,9 +7,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from botocore.exceptions import ClientError
 from sqlalchemy.orm import Session
 
-from ide_platform_api.aws_policy import assert_role_allowed, pick_role_arn_for_user
+from ide_platform_api.aws_policy import assert_role_allowed
 from ide_platform_api.aws_sts import assume_role
 from ide_platform_api.config import settings
 from ide_platform_api.db import get_db
@@ -19,6 +20,27 @@ from ide_platform_api.models import Conversation, Message, ToolAudit, User
 from ide_platform_api.openai_orchestrator import run_openai_mcp_chat
 
 router = APIRouter()
+
+def _require_role_arn(raw: str) -> str:
+    role_arn = (raw or "").strip()
+    if not role_arn:
+        raise HTTPException(status_code=400, detail="aws_role_arn is required")
+    if ":role/" not in role_arn:
+        raise HTTPException(status_code=400, detail="aws_role_arn must be an IAM Role ARN (contains ':role/')")
+    return role_arn
+
+
+def _assume_role_or_400(*, role_arn: str, user_id: str) -> dict[str, Any]:
+    try:
+        return assume_role(
+            role_arn=role_arn,
+            session_name=f"ide-{user_id[:16]}",
+            external_id=settings.aws_role_external_id,
+        )
+    except ClientError as e:
+        code = (e.response.get("Error") or {}).get("Code") or "ClientError"
+        msg = (e.response.get("Error") or {}).get("Message") or str(e)
+        raise HTTPException(status_code=400, detail=f"AWS STS AssumeRole failed ({code}): {msg}") from e
 
 
 class MeResponse(BaseModel):
@@ -46,6 +68,13 @@ class ConversationResponse(BaseModel):
     title: str
 
 
+class MessageResponse(BaseModel):
+    id: str
+    role: str
+    content: dict[str, Any]
+    created_at: str
+
+
 @router.post("/conversations", response_model=ConversationResponse)
 def create_conversation(
     body: CreateConversationRequest,
@@ -65,10 +94,39 @@ def list_conversations(db: Session = Depends(get_db), user: User = Depends(get_c
     return [ConversationResponse(id=r.id, title=r.title) for r in rows]
 
 
+@router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])
+def list_messages(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    conv = db.get(Conversation, conversation_id)
+    if not conv or conv.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    rows = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    out: list[MessageResponse] = []
+    for m in rows:
+        out.append(
+            MessageResponse(
+                id=m.id,
+                role=m.role,
+                content=m.content_json,
+                created_at=m.created_at.isoformat(),
+            )
+        )
+    return out
+
 class ChatRequest(BaseModel):
     conversation_id: str
     message: str
-    aws_role_arn: str | None = None
+    aws_role_arn: str = Field(min_length=1, description="Required. IAM Role ARN to assume for every request.")
     aws_region: str | None = Field(default="ap-south-1")
 
 
@@ -90,26 +148,16 @@ async def chat(
     db.add(Message(conversation_id=conv.id, role="user", content_json={"text": body.message}))
     db.commit()
 
-    # Minimal claims for future group->role mapping (stored later if needed)
-    claims: dict[str, Any] = {"email": user.email, "sub": user.idp_subject}
+    role_arn = _require_role_arn(body.aws_role_arn)
 
-    # Local dev: skip STS AssumeRole + allow-list enforcement.
-    # Let the MCP server use its own default AWS profile (server-side tool args default to profile="dc").
-    if settings.auth_disabled:
-        mcp_env = McpEnv(aws=None, aws_region=body.aws_region)
-    else:
-        role_arn = body.aws_role_arn or pick_role_arn_for_user(claims)
-        if not role_arn:
-            raise HTTPException(status_code=400, detail="No AWS role configured/mapped for this user")
+    # Always use the provided Role ARN for every request.
+    # In auth-disabled/dev mode we skip allow-list enforcement, but still AssumeRole.
+    if not settings.auth_disabled:
         assert_role_allowed(role_arn)
 
-        creds = assume_role(
-            role_arn=role_arn,
-            session_name=f"ide-{user.id[:16]}",
-            external_id=settings.aws_role_external_id,
-        )
+    creds = _assume_role_or_400(role_arn=role_arn, user_id=user.id)
 
-        mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
+    mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
 
     async def audit(name: str, args: dict[str, Any], payload: dict[str, Any]):
         db.add(
@@ -159,21 +207,13 @@ async def chat_stream(
     db.add(Message(conversation_id=conv.id, role="user", content_json={"text": body.message}))
     db.commit()
 
-    claims: dict[str, Any] = {"email": user.email, "sub": user.idp_subject}
-    if settings.auth_disabled:
-        mcp_env = McpEnv(aws=None, aws_region=body.aws_region)
-    else:
-        role_arn = body.aws_role_arn or pick_role_arn_for_user(claims)
-        if not role_arn:
-            raise HTTPException(status_code=400, detail="No AWS role configured/mapped for this user")
+    role_arn = _require_role_arn(body.aws_role_arn)
+
+    if not settings.auth_disabled:
         assert_role_allowed(role_arn)
 
-        creds = assume_role(
-            role_arn=role_arn,
-            session_name=f"ide-{user.id[:16]}",
-            external_id=settings.aws_role_external_id,
-        )
-        mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
+    creds = _assume_role_or_400(role_arn=role_arn, user_id=user.id)
+    mcp_env = McpEnv(aws=creds, aws_region=body.aws_region)
 
     queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 

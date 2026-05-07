@@ -164,6 +164,14 @@ def stop_ec2_instances(
     return {"stopping_instances": resp.get("StoppingInstances", [])}
 
 
+def terminate_ec2_instances(
+    *, instance_ids: list[str], region: str, profile: Optional[str] = None, dry_run: bool = False
+) -> dict[str, Any]:
+    ec2 = _session(region, profile).client("ec2")
+    resp = ec2.terminate_instances(InstanceIds=instance_ids, DryRun=dry_run)
+    return {"terminating_instances": resp.get("TerminatingInstances", [])}
+
+
 def _extract_name_from_tags(tags: Any) -> Optional[str]:
     for tag in tags or []:
         if (tag or {}).get("Key") == "Name":
@@ -434,3 +442,68 @@ def create_ec2_instance(
             "assign_public_ip": assign_public_ip,
         },
     }
+
+
+def list_amis(
+    *,
+    region: str,
+    profile: Optional[str] = None,
+    owners: Optional[list[str]] = None,
+    name_contains: Optional[str] = None,
+    architecture: Optional[str] = None,
+    root_device_type: Optional[str] = "ebs",
+    virtualization_type: Optional[str] = "hvm",
+    most_recent: bool = True,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """
+    List AMIs in a region (for selecting a valid ImageId).
+
+    Defaults are tuned for common modern Linux AMIs:
+    - root_device_type=ebs
+    - virtualization_type=hvm
+    - owners defaults to ['amazon'] if not provided
+    """
+    if limit < 1 or limit > 200:
+        raise ValueError("limit must be between 1 and 200")
+
+    ec2 = _session(region, profile).client("ec2")
+
+    filters: list[dict[str, Any]] = []
+    if name_contains:
+        filters.append({"Name": "name", "Values": [f"*{name_contains}*"]})
+    if architecture:
+        filters.append({"Name": "architecture", "Values": [architecture]})
+    if root_device_type:
+        filters.append({"Name": "root-device-type", "Values": [root_device_type]})
+    if virtualization_type:
+        filters.append({"Name": "virtualization-type", "Values": [virtualization_type]})
+
+    use_owners = owners or ["amazon"]
+
+    resp = ec2.describe_images(Owners=use_owners, Filters=filters)
+    images = resp.get("Images", []) or []
+
+    def created(img: dict[str, Any]) -> str:
+        return str(img.get("CreationDate") or "")
+
+    images.sort(key=created, reverse=most_recent)
+    images = images[:limit]
+
+    out: list[dict[str, Any]] = []
+    for img in images:
+        out.append(
+            {
+                "image_id": img.get("ImageId"),
+                "name": img.get("Name"),
+                "description": img.get("Description"),
+                "creation_date": img.get("CreationDate"),
+                "architecture": img.get("Architecture"),
+                "state": img.get("State"),
+                "owner_id": img.get("OwnerId"),
+                "platform_details": img.get("PlatformDetails"),
+                "root_device_type": img.get("RootDeviceType"),
+                "virtualization_type": img.get("VirtualizationType"),
+            }
+        )
+    return out
