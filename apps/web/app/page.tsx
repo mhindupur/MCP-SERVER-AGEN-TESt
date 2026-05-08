@@ -8,6 +8,8 @@ type ChatMessage = { id: string; role: string; content: any; created_at: string 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8002";
 const AUTH_DISABLED = process.env.NEXT_PUBLIC_AUTH_DISABLED === "true";
 
+type Theme = "light" | "dark";
+
 export default function HomePage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string>("");
@@ -21,6 +23,7 @@ export default function HomePage() {
   const [me, setMe] = useState<{ id: string; email: string; name?: string | null } | null>(null);
 
   const [loginUrl, setLoginUrl] = useState<string>("");
+  const [theme, setTheme] = useState<Theme>("light");
   const historyRef = useRef<HTMLDivElement | null>(null);
   const traceRef = useRef<HTMLDivElement | null>(null);
 
@@ -59,10 +62,25 @@ export default function HomePage() {
   useEffect(() => {
     // `window` is only available on the client.
     setLoginUrl(`${API_BASE}/auth/login?next=${encodeURIComponent(window.location.origin + "/")}`);
+    const t = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    setTheme(t);
     void refreshMe();
     void refreshConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function toggleTheme() {
+    setTheme((prev) => {
+      const next: Theme = prev === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      try {
+        localStorage.setItem("ide-theme", next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     void refreshMessages(conversationId);
@@ -225,20 +243,31 @@ export default function HomePage() {
             Login via SSO, then chat. Tool trace appears on the right.
           </div>
         </div>
-        <div className="row">
-          {me ? (
-            <div className="muted">
-              Signed in as <span className="mono">{me.email}</span>
-            </div>
-          ) : AUTH_DISABLED ? (
-            <div className="muted">
-              Dev mode enabled (auth bypass). Refreshing user…
-            </div>
-          ) : (
-            <a href={loginUrl}>
-              <button type="button">Sign in (OIDC)</button>
-            </a>
-          )}
+        <div className="topBarActions">
+          <div className="row">
+            {me ? (
+              <div className="muted">
+                Signed in as <span className="mono">{me.email}</span>
+              </div>
+            ) : AUTH_DISABLED ? (
+              <div className="muted">
+                Dev mode enabled (auth bypass). Refreshing user…
+              </div>
+            ) : (
+              <a href={loginUrl}>
+                <button type="button">Sign in (OIDC)</button>
+              </a>
+            )}
+          </div>
+          <button
+            type="button"
+            className="themeToggle"
+            onClick={toggleTheme}
+            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          >
+            {theme === "light" ? "Dark mode" : "Light mode"}
+          </button>
         </div>
       </div>
 
