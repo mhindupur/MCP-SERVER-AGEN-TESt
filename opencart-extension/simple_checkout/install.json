@@ -1,0 +1,10 @@
+{
+  "name": "Simple Checkout",
+  "code": "simple_checkout",
+  "description": "Simplifies checkout on OpenCart 4.1+: after the customer saves their address, automatically selects shipping and payment when only one option exists, or shows inline radio choices when several are available (no Choose modals).",
+  "version": "1.0.0",
+  "author": "Custom",
+  "link": "",
+  "extension_id": 0,
+  "extension_download_id": 0
+}
