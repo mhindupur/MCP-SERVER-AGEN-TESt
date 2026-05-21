@@ -34,6 +34,11 @@ html[data-theme="light"] {
   --btn-font-weight: 600;
   --error: #c0392b;
   --link-hover: #42a5f5;
+  --arch-edge: #232f3e;
+  --arch-edge-sg: #888888;
+  --arch-vpc-border: #ff9900;
+  --arch-vpc-bg: #fff8f0;
+  --arch-region-border: #3498db;
 }
 
 html[data-theme="dark"] {
@@ -68,6 +73,11 @@ html[data-theme="dark"] {
   --btn-font-weight: 500;
   --error: #ff8a8a;
   --link-hover: #8eb8ff;
+  --arch-edge: #8eb8ff;
+  --arch-edge-sg: #a9b7d6;
+  --arch-vpc-border: #ff9900;
+  --arch-vpc-bg: rgba(255, 153, 0, 0.08);
+  --arch-region-border: #6ea8fe;
 }
 
 html,
@@ -417,4 +427,596 @@ button.themeToggle:hover:enabled {
   line-height: 1.45;
   white-space: pre-wrap;
   color: var(--text);
+}
+
+/* EC2 infrastructure page */
+.infraShell {
+  min-height: 100vh;
+  padding: 18px;
+  background: var(--page-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.infraNavLink {
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Chat ↔ EC2 Infra mode switch (home + infra top bar) */
+.viewModeSwitch {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--input-bg);
+}
+
+.viewModeSwitchBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--muted);
+  border: none;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.viewModeSwitchBtn:last-child {
+  border-right: none;
+}
+
+.viewModeSwitchBtn:hover {
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+.viewModeSwitchBtnActive {
+  color: var(--btn-color);
+  background: var(--btn-bg);
+}
+
+.viewModeSwitchBtnActive:hover {
+  color: var(--btn-color);
+  background: var(--btn-bg-hover);
+}
+
+.infraToolbarGrid {
+  display: grid;
+  grid-template-columns: auto 1fr auto minmax(120px, 180px) auto;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .infraToolbarGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .infraToolbarActions {
+    grid-column: 1 / -1;
+  }
+}
+
+.infraInput {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.infraInputShort {
+  max-width: 180px;
+}
+
+.infraError {
+  margin-top: 10px;
+  color: var(--error);
+  font-size: 13px;
+}
+
+.infraTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.infraTab {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.infraTabActive {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.infraOverviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.infraStatCard {
+  text-align: center;
+  padding: 20px 14px;
+}
+
+.infraStatValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--title-color);
+}
+
+.infraWarn {
+  color: var(--error);
+  font-size: 12px;
+}
+
+.infraSplit {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 340px);
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .infraSplit {
+    grid-template-columns: 1fr;
+  }
+}
+
+.infraTableWrap {
+  overflow-x: auto;
+}
+
+.infraTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.infraTable th,
+.infraTable td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.infraTable th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.infraTable tbody tr {
+  cursor: pointer;
+}
+
+.infraTable tbody tr:hover {
+  background: var(--page-bg);
+}
+
+.infraRowSelected {
+  background: var(--page-bg);
+}
+
+.infraDetail {
+  min-height: 200px;
+}
+
+.infraDetailBody {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.infraBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  margin-left: 6px;
+}
+
+.infraBadge-running {
+  border-color: #62a645;
+  color: #62a645;
+}
+
+.infraBadge-stopped {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+.infraBadge-terminated {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.infraMapPane {
+  min-height: 400px;
+}
+
+.infraMapScroll {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.infraVpcBlock {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--page-bg);
+}
+
+.infraVpcTitle {
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--title-color);
+}
+
+.infraSubnetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.infraSubnetCard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--surface);
+}
+
+.infraSubnetTitle {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.infraInstanceList {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.infraInstanceChip {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--page-bg);
+}
+
+.infraInstanceChip:hover {
+  border-color: var(--accent);
+}
+
+.infraSgTag {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* AWS-style architecture diagram (React Flow) */
+.infraDiagramPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 10px;
+}
+
+.infraDiagramPanelCompact {
+  min-height: 480px;
+}
+
+.infraDiagramToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+}
+
+.infraDiagramRole {
+  flex: 1 1 280px;
+  min-width: 200px;
+}
+
+.infraDiagramVpcSelect {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.infraDiagramMain {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 10px;
+}
+
+.infraDiagramEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+}
+
+.archDiagramWrap {
+  flex: 1 1 auto;
+  min-height: 420px;
+  height: calc(100vh - 200px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.archDiagramHint {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--page-bg);
+}
+
+.archDiagramWrap .react-flow {
+  flex: 1 1 auto;
+  min-height: 360px;
+}
+
+.infraDiagramPanelCompact .archDiagramWrap {
+  height: calc(100vh - 220px);
+}
+
+.archDiagramWrap .react-flow {
+  background: var(--page-bg);
+}
+
+.archMinimap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface) !important;
+}
+
+.infraDiagramDrawer {
+  width: min(280px, 30%);
+  flex-shrink: 0;
+  padding: 12px;
+  overflow: auto;
+}
+
+.archNode {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.archNodeTitle {
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 10px;
+  pointer-events: none;
+}
+
+.archRegion {
+  position: relative;
+  border: 2px dashed var(--arch-region-border);
+  background: transparent;
+  border-radius: 12px;
+  min-height: 100%;
+}
+
+.archRegion .archNodeTitle {
+  color: var(--title-color);
+  position: absolute;
+  top: -1px;
+  left: 12px;
+  background: var(--surface);
+  padding: 4px 10px;
+  border: 2px dashed var(--arch-region-border);
+  border-radius: 8px;
+  transform: translateY(-50%);
+}
+
+.archVpc {
+  position: relative;
+  border: 2px solid var(--arch-vpc-border);
+  background: var(--arch-vpc-bg);
+  border-radius: 10px;
+  min-height: 100%;
+}
+
+.archLaneHint {
+  position: absolute;
+  bottom: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.archLaneHintSubnet {
+  left: 12px;
+}
+
+.archLaneHintSg {
+  right: 12px;
+}
+
+.arch-drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.arch-drag-handle:active {
+  cursor: grabbing;
+}
+
+.archDragHint {
+  opacity: 0.45;
+  margin-right: 4px;
+  font-size: 12px;
+}
+
+.archResizerLine {
+  border-color: var(--accent) !important;
+}
+
+.archResizerHandle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 2px;
+  background: var(--accent) !important;
+  border-color: var(--surface) !important;
+}
+
+.archEc2Selected,
+.archSgSelected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.archVpcTitle {
+  color: var(--text);
+}
+
+.archSubnet {
+  position: relative;
+  border: 2px dashed var(--border);
+  background: var(--surface);
+  min-height: 100%;
+  padding: 4px 8px 8px;
+  box-sizing: border-box;
+}
+
+.archSubnetTitle {
+  font-size: 11px;
+}
+
+.archAwsLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--arch-vpc-border);
+  margin-right: 4px;
+}
+
+.archMeta {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 0 8px 4px;
+}
+
+.archBadge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  margin-left: 6px;
+}
+
+.archBadgePublic {
+  border-color: #62a645;
+  color: #62a645;
+}
+
+.archEc2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  pointer-events: all;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.archEc2:hover {
+  border-color: var(--accent);
+}
+
+.archEc2Icon,
+.archSgIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #ff9900, #e88b00);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.archSgIcon {
+  background: linear-gradient(180deg, #dd344c, #c02d42);
+  font-size: 8px;
+}
+
+.archEc2Body {
+  flex: 1;
+  min-width: 0;
+}
+
+.archEc2Name {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.archSg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px dashed var(--border);
+  background: var(--input-bg);
+  border-radius: 8px;
+  pointer-events: all;
+}
+
+.archHandle {
+  opacity: 0;
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.archBadge {
+  font-size: 9px;
 }

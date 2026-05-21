@@ -17,6 +17,13 @@ class ChatTrace:
     steps: list[dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class PendingActionRequired(Exception):
+    tool_name: str
+    args: dict[str, Any]
+    reason: str = "pending_action_required"
+
+
 def _openai_client() -> OpenAI:
     if not settings.openai_api_key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
@@ -113,7 +120,7 @@ async def run_openai_mcp_chat(
             try:
                 args = json.loads(raw_args) if raw_args else {}
                 if not isinstance(args, dict):
-                    args = {}
+                    args = {"_raw": args, "_raw_text": raw_args}
             except json.JSONDecodeError:
                 args = {"_raw": raw_args}
 
@@ -121,6 +128,29 @@ async def run_openai_mcp_chat(
             trace_steps.append(step)
             if on_trace_step is not None:
                 await on_trace_step(step)
+
+            # Cursor-like gating for destructive tool calls: do not execute until user approves.
+            if name == "aws_terminate_ec2_instances" and not bool(args.get("dry_run", False)):
+                instance_ids = args.get("instance_ids")
+                if not isinstance(instance_ids, list) or not instance_ids:
+                    payload = {
+                        "error": "Invalid tool arguments for aws_terminate_ec2_instances. Expected {instance_ids:[...]}",
+                        "got": args,
+                    }
+                    step = {"type": "tool_result", "name": name, "result": payload, "isError": True}
+                    trace_steps.append(step)
+                    if on_trace_step is not None:
+                        await on_trace_step(step)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": json.dumps(payload),
+                        }
+                    )
+                    continue
+
+                raise PendingActionRequired(tool_name=name, args=args)
 
             async def _run_one(session: ClientSession, name=name, args=args):
                 return await _call_tool(session, name, args)

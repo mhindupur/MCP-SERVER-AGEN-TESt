@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { DisplayModeSwitch, type DisplayMode } from "./components/DisplayModeSwitch";
+import { InfraDiagramPanel } from "./components/InfraDiagramPanel";
+import { ViewModeSwitch } from "./components/ViewModeSwitch";
+import { LS_AWS_REGION, LS_AWS_ROLE, LS_HOME_DISPLAY } from "./lib/topology";
+
 type Conversation = { id: string; title: string };
 type ChatMessage = { id: string; role: string; content: any; created_at: string };
 
@@ -21,9 +26,11 @@ export default function HomePage() {
   const [reply, setReply] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
   const [me, setMe] = useState<{ id: string; email: string; name?: string | null } | null>(null);
+  const [pendingAction, setPendingAction] = useState<any | null>(null);
 
   const [loginUrl, setLoginUrl] = useState<string>("");
   const [theme, setTheme] = useState<Theme>("light");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("view");
   const historyRef = useRef<HTMLDivElement | null>(null);
   const traceRef = useRef<HTMLDivElement | null>(null);
 
@@ -64,10 +71,38 @@ export default function HomePage() {
     setLoginUrl(`${API_BASE}/auth/login?next=${encodeURIComponent(window.location.origin + "/")}`);
     const t = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
     setTheme(t);
+    try {
+      const role = localStorage.getItem(LS_AWS_ROLE);
+      const region = localStorage.getItem(LS_AWS_REGION);
+      const dm = localStorage.getItem(LS_HOME_DISPLAY);
+      if (role) setAwsRoleArn(role);
+      if (region) setAwsRegion(region);
+      if (dm === "diagram" || dm === "view") setDisplayMode(dm);
+    } catch {
+      /* ignore */
+    }
     void refreshMe();
     void refreshConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    try {
+      if (awsRoleArn.trim()) localStorage.setItem(LS_AWS_ROLE, awsRoleArn.trim());
+      if (awsRegion.trim()) localStorage.setItem(LS_AWS_REGION, awsRegion.trim());
+    } catch {
+      /* ignore */
+    }
+  }, [awsRoleArn, awsRegion]);
+
+  function onDisplayModeChange(mode: DisplayMode) {
+    setDisplayMode(mode);
+    try {
+      localStorage.setItem(LS_HOME_DISPLAY, mode);
+    } catch {
+      /* ignore */
+    }
+  }
 
   function toggleTheme() {
     setTheme((prev) => {
@@ -124,6 +159,7 @@ export default function HomePage() {
     setBusy(true);
     setTrace([]);
     setReply("");
+    setPendingAction(null);
     try {
       const r = await fetch(`/api/chat/stream`, {
         method: "POST",
@@ -175,11 +211,17 @@ export default function HomePage() {
           if (event === "trace" && payload?.step) {
             steps.push(payload.step);
             setTrace([...steps]);
+            if (payload.step?.type === "pending_action" && payload.step?.pending_action) {
+              setPendingAction(payload.step.pending_action);
+            }
           }
           if (event === "final") {
             setReply(String(payload.reply || ""));
             if (Array.isArray(payload.trace)) setTrace(payload.trace);
+            if (payload.pending_action) setPendingAction(payload.pending_action);
             await refreshMessages(conversationId);
+            // Clear composer on success to avoid re-sending stale text.
+            if (!String(payload.reply || "").startsWith("Error")) setMessage("");
           }
           if (event === "error") {
             setReply(`Error: ${String(payload.message || "unknown")}`);
@@ -189,6 +231,65 @@ export default function HomePage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function approveAndRun() {
+    if (!pendingAction?.tool_name) return;
+    if (!pendingAction?.args || typeof pendingAction.args !== "object" || Array.isArray(pendingAction.args)) {
+      setReply("Error: Pending action args are invalid. Please re-run the request.");
+      return;
+    }
+    if (pendingAction.tool_name === "aws_terminate_ec2_instances") {
+      const ids = (pendingAction.args as any)?.instance_ids;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        setReply("Error: Pending termination is missing instance_ids. Please re-run the request.");
+        return;
+      }
+    }
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/actions/run`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          tool_name: pendingAction.tool_name,
+          args: pendingAction.args || {},
+          aws_role_arn: awsRoleArn.trim(),
+          aws_region: awsRegion
+        })
+      });
+      const text = await r.text();
+      if (!r.ok) {
+        setReply(`Error (${r.status}): ${text}`);
+        return;
+      }
+      setPendingAction(null);
+      setReply("Executed.");
+      await refreshMessages(conversationId);
+      setMessage("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copyCommand() {
+    if (!pendingAction?.tool_name) return;
+    if (!pendingAction?.args || typeof pendingAction.args !== "object" || Array.isArray(pendingAction.args)) {
+      setReply("Error: Pending action args are invalid. Please re-run the request.");
+      return;
+    }
+    const args = { ...(pendingAction.args || {}) };
+    // Encourage dry-run when copying.
+    if (pendingAction.tool_name === "aws_terminate_ec2_instances") args.dry_run = true;
+    setMessage(
+      JSON.stringify(
+        { tool_call: { name: pendingAction.tool_name, args } },
+        null,
+        2
+      )
+    );
   }
 
   function renderMessage(m: ChatMessage) {
@@ -244,6 +345,8 @@ export default function HomePage() {
           </div>
         </div>
         <div className="topBarActions">
+          <DisplayModeSwitch mode={displayMode} onChange={onDisplayModeChange} />
+          <ViewModeSwitch />
           <div className="row">
             {me ? (
               <div className="muted">
@@ -271,6 +374,17 @@ export default function HomePage() {
         </div>
       </div>
 
+      {displayMode === "diagram" ? (
+        <InfraDiagramPanel
+          awsRoleArn={awsRoleArn}
+          awsRegion={awsRegion}
+          onAwsRoleArnChange={setAwsRoleArn}
+          onAwsRegionChange={setAwsRegion}
+          autoLoad={Boolean(awsRoleArn.trim())}
+        />
+      ) : null}
+
+      {displayMode === "view" ? (
       <div className="mainGrid">
         <div className="pane leftPane">
           <div className="paneHeader">
@@ -356,8 +470,36 @@ export default function HomePage() {
               <div className="mono">{JSON.stringify(trace, null, 2)}</div>
             )}
           </div>
+          {pendingAction ? (
+            <div style={{ marginTop: 10 }} className="card">
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Approval required</div>
+              <div className="muted" style={{ marginBottom: 8 }}>
+                {pendingAction.tool_name}
+              </div>
+              <div className="mono" style={{ marginBottom: 10 }}>
+                {JSON.stringify(pendingAction.args, null, 2)}
+              </div>
+              {pendingAction.explanation ? (
+                <div style={{ marginBottom: 10 }}>
+                  <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
+                    Why / impact
+                  </div>
+                  <div className="mono">{JSON.stringify(pendingAction.explanation, null, 2)}</div>
+                </div>
+              ) : null}
+              <div className="row" style={{ justifyContent: "flex-end" }}>
+                <button type="button" onClick={copyCommand} disabled={busy}>
+                  Copy
+                </button>
+                <button type="button" onClick={() => void approveAndRun()} disabled={busy}>
+                  Approve &amp; Run
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
+      ) : null}
     </div>
   );
 }

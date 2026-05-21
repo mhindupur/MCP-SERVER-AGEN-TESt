@@ -14,6 +14,7 @@ from cloud_mcp_agent.providers.aws import (
     stop_ec2_instances,
     terminate_ec2_instances,
 )
+from cloud_mcp_agent.providers.aws_topology import describe_infra_topology
 
 mcp = FastMCP("cloud-mcp-agent")
 
@@ -249,6 +250,16 @@ def aws_list_amis(
         most_recent=most_recent,
         limit=limit,
     )
+
+
+@mcp.tool
+def aws_describe_infra_topology(region: str = "ap-south-1", profile: str = "dc"):
+    """
+    Describe EC2 instances with VPC, subnets, and security groups for infrastructure visualization.
+
+    Returns a topology graph: vpcs, subnets, security_groups, instances, edges, and summary counts.
+    """
+    return describe_infra_topology(region=region, profile=profile)
 
 
 def main() -> None:
